@@ -156,11 +156,13 @@
 
     <!-- ================= 2. GOOGLE LOGIN PAGE ================= -->
     <div id="view-login" class="hidden flex-grow flex items-center justify-center px-4 min-h-screen py-10">
-        <div class="bg-surface-container border border-outline-variant/30 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
+        <div class="bg-surface-container border border-outline-variant/30 p-8 rounded-2xl w-full max-w-md shadow-2xl relative text-center">
             <button onclick="showView('welcome')" class="absolute top-4 left-4 text-on-surface-variant hover:text-on-surface text-xs font-medium flex items-center transition cursor-pointer">
                 <i class="fa-solid fa-arrow-left mr-1.5"></i> Back
             </button>
-            <div class="text-center mt-6 mb-8">
+
+            <!-- Card Header -->
+            <div class="mt-4 mb-8">
                 <div class="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 border border-primary/20 shadow-inner">
                     <svg class="w-7 h-7" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -171,12 +173,12 @@
                 </div>
                 <h2 class="text-xl font-heading font-bold text-on-surface">Sign in with Google</h2>
                 <p class="text-xs text-on-surface-variant mt-2 max-w-xs mx-auto leading-relaxed">
-                    Click below to continue to the Google login page. Your user profile will be securely stored on Supabase.
+                    Click below to continue with your Google account. Your profile and credentials will be securely saved to Supabase.
                 </p>
             </div>
 
             <!-- Supabase Google Login Button -->
-            <button id="google-login-btn" onclick="handleGoogleLogin()" class="w-full bg-surface-container-lowest hover:bg-surface-container-high text-on-surface border border-outline-variant/40 py-3 rounded-lg font-heading font-medium text-sm transition flex items-center justify-center space-x-3 shadow-md hover:shadow-lg cursor-pointer">
+            <button id="google-login-btn" onclick="handleGoogleLogin()" class="w-full bg-surface-container-lowest hover:bg-surface-container-high text-on-surface border border-outline-variant/40 py-3.5 rounded-xl font-heading font-medium text-sm transition flex items-center justify-center space-x-3 shadow-md hover:shadow-lg cursor-pointer">
                 <i id="google-btn-spinner" class="fa-solid fa-spinner fa-spin text-primary hidden"></i>
                 <svg id="google-btn-icon" class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>

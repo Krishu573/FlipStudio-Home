@@ -29,8 +29,8 @@ export default function App() {
   const AUTH_REDIRECT_FILE = 'dashboard.html';
   const AUTH_DESTINATION_VIEW: 'welcome' | 'login' | 'editor' = 'editor';
 
-  // Navigation views: 'welcome' | 'login' | 'editor'
-  const [currentView, setCurrentView] = useState<'welcome' | 'login' | 'editor'>('welcome');
+  // Navigation views: 'welcome' | 'login' | 'consent' | 'editor'
+  const [currentView, setCurrentView] = useState<'welcome' | 'login' | 'consent' | 'editor'>('welcome');
 
   // User state
   const [user, setUser] = useState<{ email: string; name?: string; avatar?: string; id?: string } | null>(null);
@@ -254,6 +254,16 @@ export default function App() {
       // ignore
     }
 
+    // Check if current URL is the OAuth Authorization / Consent screen
+    const pathname = window.location.pathname;
+    const search = window.location.search;
+    const hash = window.location.hash;
+    const isConsentRoute = pathname.includes('oauth/consent') || search.includes('oauth/consent') || hash.includes('oauth/consent') || search.includes('authorization_id=') || search.includes('view=consent');
+
+    if (isConsentRoute) {
+      setCurrentView('consent');
+    }
+
     // Listen for fullscreen change
     const onFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -345,6 +355,53 @@ export default function App() {
       showToast(err.message || 'Failed to navigate to Google login page', 'error');
       setAuthLoading(false);
     }
+  };
+
+  const handleConsentAllow = async () => {
+    if (!user) {
+      handleGoogleSignIn();
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const authorizationId = searchParams.get('authorization_id') || searchParams.get('auth_id');
+      const redirectUriParam = searchParams.get('redirect_uri');
+
+      if (authorizationId) {
+        try {
+          const { data } = await (supabase.auth as any).oauth?.consent?.({
+            consent: true,
+            authorization_id: authorizationId,
+          });
+          if (data?.redirect_to) {
+            window.location.href = data.redirect_to;
+            return;
+          }
+        } catch (e) {
+          console.warn('OAuth consent API note:', e);
+        }
+      }
+
+      if (redirectUriParam && /^https?:\/\//i.test(redirectUriParam)) {
+        window.location.href = redirectUriParam;
+        return;
+      }
+
+      showToast('Authorization approved! Redirecting...', 'success');
+      setTimeout(() => {
+        navigateToDestination();
+      }, 400);
+    } catch (err: any) {
+      showToast(err.message || 'Authorization error', 'error');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleConsentDeny = () => {
+    showToast('Authorization was cancelled.', 'info');
+    setCurrentView('welcome');
   };
 
   // Handle Logout
@@ -734,6 +791,103 @@ export default function App() {
                 </>
               )}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= 2B. OAUTH AUTHORIZATION / CONSENT SCREEN (/oauth/consent) ================= */}
+      {currentView === 'consent' && (
+        <div id="view-consent" className="flex-grow flex items-center justify-center px-4 min-h-screen py-10">
+          <div className="bg-surface-container border border-outline-variant/30 p-8 rounded-2xl w-full max-w-md shadow-2xl relative text-center">
+            <button
+              onClick={() => setCurrentView('welcome')}
+              className="absolute top-4 left-4 text-on-surface-variant hover:text-on-surface text-xs font-medium flex items-center transition cursor-pointer"
+            >
+              <i className="fa-solid fa-arrow-left mr-1.5"></i> Back
+            </button>
+
+            {/* Card Header */}
+            <div className="mt-2 mb-6">
+              <div className="flex items-center justify-center space-x-3 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
+                  <i className="fa-solid fa-book-open-reader text-primary text-xl"></i>
+                </div>
+                <i className="fa-solid fa-arrow-right-arrow-left text-on-surface-variant/40 text-xs"></i>
+                <div className="w-12 h-12 rounded-xl bg-[#102a1d] flex items-center justify-center border border-emerald-500/30 shadow-inner">
+                  <i className="fa-solid fa-bolt text-emerald-400 text-lg"></i>
+                </div>
+              </div>
+              <h2 className="text-xl font-heading font-bold text-on-surface">Authorize FlipStudio</h2>
+              <p className="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
+                <span className="text-on-surface font-semibold">FlipStudio Editor</span> requests authorization to access your workspace.
+              </p>
+            </div>
+
+            {/* User Profile display */}
+            <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 mb-5 flex items-center space-x-3">
+              {user?.avatar ? (
+                <img src={user.avatar} alt="Avatar" className="w-9 h-9 rounded-full object-cover border border-primary/40" />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm">
+                  <i className="fa-solid fa-user"></i>
+                </div>
+              )}
+              <div className="flex-grow min-w-0 text-left">
+                <p className="text-xs font-heading font-semibold text-on-surface truncate">
+                  {user?.name || user?.email?.split('@')[0] || 'Google User'}
+                </p>
+                <p className="text-[11px] text-on-surface-variant truncate">
+                  {user?.email || 'Sign in with Google to authorize'}
+                </p>
+              </div>
+              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-mono">
+                Supabase
+              </span>
+            </div>
+
+            {/* Scopes */}
+            <div className="bg-surface-container-low/60 rounded-xl p-4 border border-outline-variant/20 mb-6 text-left space-y-3">
+              <p className="text-[11px] font-heading font-semibold text-on-surface uppercase tracking-wider">This allows FlipStudio to:</p>
+              <div className="flex items-start space-x-2.5 text-xs text-on-surface-variant">
+                <i className="fa-solid fa-circle-check text-emerald-400 text-xs mt-0.5 flex-shrink-0"></i>
+                <span>Access your profile details (name, email, and avatar)</span>
+              </div>
+              <div className="flex items-start space-x-2.5 text-xs text-on-surface-variant">
+                <i className="fa-solid fa-circle-check text-emerald-400 text-xs mt-0.5 flex-shrink-0"></i>
+                <span>Create, load, and render 3D PDF digital flipbooks</span>
+              </div>
+              <div className="flex items-start space-x-2.5 text-xs text-on-surface-variant">
+                <i className="fa-solid fa-circle-check text-emerald-400 text-xs mt-0.5 flex-shrink-0"></i>
+                <span>Persist session tokens across workspace launches</span>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="space-y-2.5">
+              <button
+                onClick={handleConsentAllow}
+                disabled={authLoading}
+                className="w-full bg-primary hover:bg-primary-container text-on-primary py-3 rounded-xl font-heading font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-lg shadow-primary/20 cursor-pointer disabled:opacity-50"
+              >
+                {authLoading ? (
+                  <>
+                    <i className="fa-solid fa-spinner fa-spin"></i>
+                    <span>Authorizing...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{user ? 'Authorize & Continue to FlipStudio Editor' : 'Sign in with Google & Authorize'}</span>
+                    <i className="fa-solid fa-arrow-right text-[11px]"></i>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleConsentDeny}
+                className="w-full bg-surface-container-lowest hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface py-2.5 rounded-xl font-heading font-medium text-xs transition border border-outline-variant/30 cursor-pointer"
+              >
+                Deny &amp; Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

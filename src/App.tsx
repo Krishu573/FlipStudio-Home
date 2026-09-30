@@ -183,6 +183,24 @@ export default function App() {
         const msg = errorDescription ? decodeURIComponent(errorDescription) : errorMsg;
         showToast(`Google Login: ${msg}`, 'error');
       }
+
+      const codeParam = searchParams.get('code');
+      if (codeParam) {
+        supabase.auth.exchangeCodeForSession(codeParam).then(({ data }) => {
+          if (data?.session?.user) {
+            syncUserToSupabase(data.session.user);
+            const googleEmail = data.session.user.email || 'Google User';
+            const fullName = data.session.user.user_metadata?.full_name || data.session.user.user_metadata?.name;
+            const avatar = data.session.user.user_metadata?.avatar_url || data.session.user.user_metadata?.picture;
+            const userData = { email: googleEmail, name: fullName, avatar, id: data.session.user.id };
+            setUser(userData);
+            localStorage.setItem('flipstudio_auth_user', JSON.stringify(userData));
+            localStorage.setItem('flipcraft_google_user', JSON.stringify(userData));
+            window.history.replaceState(null, '', window.location.pathname);
+            navigateToDestination();
+          }
+        }).catch(() => {});
+      }
     } catch {
       // ignore
     }

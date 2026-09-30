@@ -855,8 +855,26 @@
             }
 
             const isOAuthRedirect = window.location.search.includes('code=') || window.location.hash.includes('access_token=');
+            const codeParam = new URLSearchParams(window.location.search).get('code');
 
             if (supabaseClient) {
+                // Explicitly exchange PKCE authorization code if present in redirect URL
+                if (codeParam) {
+                    try {
+                        const { data, error } = await supabaseClient.auth.exchangeCodeForSession(codeParam);
+                        if (data && data.session && data.session.user) {
+                            await syncUserToSupabase(data.session.user);
+                            onLoginSuccess(data.session.user, true);
+                            try {
+                                window.history.replaceState(null, '', window.location.pathname);
+                            } catch (e) {}
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('OAuth code exchange notice:', e);
+                    }
+                }
+
                 supabaseClient.auth.onAuthStateChange(async (event, session) => {
                     if (session && session.user) {
                         await syncUserToSupabase(session.user);

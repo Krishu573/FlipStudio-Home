@@ -71,9 +71,8 @@ export default function App() {
   // If already signed in -> Go directly to destination page (editor / custom page)
   // If not signed in -> Ask to sign in with Google
   const handleGetStarted = () => {
-    if (user || localStorage.getItem('flipcraft_google_user')) {
+    if (user || localStorage.getItem('flipstudio_auth_user') || localStorage.getItem('flipcraft_google_user')) {
       navigateToDestination();
-      showToast('Welcome back to your workspace!', 'info');
     } else {
       setCurrentView('login');
     }
@@ -115,42 +114,58 @@ export default function App() {
     }
   };
 
-  // Store & sync user profile data on Supabase database
+  // Store & sync user profile credentials (email, name, profile picture) on Supabase
   const syncUserToSupabase = async (authUser: any) => {
     if (!authUser) return;
 
+    const email = authUser.email || authUser.user_metadata?.email || '';
+    const name = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.user_metadata?.given_name || (email ? email.split('@')[0] : 'User');
+    const avatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || '';
+
+    // 1. Permanently update user metadata directly in Supabase Auth (auth.users)
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          full_name: name,
+          name: name,
+          avatar_url: avatar,
+          picture: avatar,
+          email: email
+        }
+      });
+    } catch (authErr) {
+      console.log('Supabase auth metadata update notice:', authErr);
+    }
+
     const userPayload = {
       id: authUser.id,
-      email: authUser.email || authUser.user_metadata?.email,
-      full_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || '',
-      avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || '',
+      email: email,
+      name: name,
+      full_name: name,
+      avatar_url: avatar,
+      picture: avatar,
       provider: 'google',
       last_sign_in_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    // Store in Supabase 'profiles' table
+    // 2. Store in Supabase database tables
     try {
-      const { error: profileError } = await supabase.from('profiles').upsert(userPayload, { onConflict: 'id' });
-      if (profileError) {
-        console.log('Notice on profiles table:', profileError.message);
-      } else {
-        console.log('User profile saved to Supabase profiles table.');
-      }
+      await supabase.from('profiles').upsert(userPayload, { onConflict: 'id' });
     } catch (e) {
       console.log('Supabase profiles sync error:', e);
     }
 
-    // Also store in Supabase 'users' table if defined
     try {
-      const { error: usersError } = await supabase.from('users').upsert(userPayload, { onConflict: 'id' });
-      if (usersError) {
-        console.log('Notice on users table:', usersError.message);
-      } else {
-        console.log('User profile saved to Supabase users table.');
-      }
+      await supabase.from('users').upsert(userPayload, { onConflict: 'id' });
     } catch (e) {
       console.log('Supabase users sync error:', e);
+    }
+
+    try {
+      await supabase.from('user_profiles').upsert(userPayload, { onConflict: 'id' });
+    } catch (e) {
+      console.log('Supabase user_profiles sync error:', e);
     }
   };
 
@@ -190,6 +205,7 @@ export default function App() {
         await syncUserToSupabase(session.user);
 
         try {
+          localStorage.setItem('flipstudio_auth_user', JSON.stringify(userData));
           localStorage.setItem('flipcraft_google_user', JSON.stringify(userData));
           if (window.location.search.includes('code=') || window.location.hash.includes('access_token=')) {
             window.history.replaceState(null, '', window.location.pathname);
@@ -201,6 +217,8 @@ export default function App() {
         showToast(`Signed in with Google as ${googleEmail}`, 'success');
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
+        localStorage.removeItem('flipstudio_auth_user');
+        localStorage.removeItem('flipcraft_google_user');
         setCurrentView('welcome');
       }
     });
@@ -211,20 +229,24 @@ export default function App() {
         const googleEmail = data.session.user.email || data.session.user.user_metadata?.email || 'Google User';
         const fullName = data.session.user.user_metadata?.full_name || data.session.user.user_metadata?.name;
         const avatar = data.session.user.user_metadata?.avatar_url || data.session.user.user_metadata?.picture;
-        setUser({
+        const activeUserData = {
           email: googleEmail,
           name: fullName,
           avatar: avatar,
           id: data.session.user.id,
-        });
+        };
+        setUser(activeUserData);
         await syncUserToSupabase(data.session.user);
-        setCurrentView(AUTH_DESTINATION_VIEW);
+        try {
+          localStorage.setItem('flipstudio_auth_user', JSON.stringify(activeUserData));
+          localStorage.setItem('flipcraft_google_user', JSON.stringify(activeUserData));
+        } catch {}
       }
     }).catch(() => {});
 
     // Check cached session in localStorage
     try {
-      const savedUser = localStorage.getItem('flipcraft_google_user');
+      const savedUser = localStorage.getItem('flipstudio_auth_user') || localStorage.getItem('flipcraft_google_user');
       if (savedUser) {
         setUser(JSON.parse(savedUser));
       }
@@ -334,6 +356,7 @@ export default function App() {
     }
     setUser(null);
     try {
+      localStorage.removeItem('flipstudio_auth_user');
       localStorage.removeItem('flipcraft_google_user');
     } catch {
       // ignore
@@ -569,12 +592,29 @@ export default function App() {
                 <span className="text-[#c0c1ff] font-bold">Studio</span>
               </span>
             </div>
-            <div>
+            <div className="flex items-center space-x-3">
+              {user && (
+                <div className="flex items-center space-x-2.5 bg-surface-container-lowest border border-outline-variant/30 px-3 py-1.5 rounded-full">
+                  {user.avatar ? (
+                    <img src={user.avatar} alt="Profile" className="w-6 h-6 rounded-full object-cover border border-primary/40" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs">
+                      <i className="fa-solid fa-user"></i>
+                    </div>
+                  )}
+                  <span className="text-xs font-heading font-medium text-on-surface truncate max-w-[140px]">
+                    {user.name || user.email.split('@')[0]}
+                  </span>
+                  <button onClick={handleLogout} className="text-on-surface-variant hover:text-red-400 text-xs ml-1 transition cursor-pointer" title="Sign out">
+                    <i className="fa-solid fa-right-from-bracket"></i>
+                  </button>
+                </div>
+              )}
               <button
                 onClick={handleGetStarted}
-                className="bg-primary hover:bg-primary-container text-on-primary px-5 py-2 rounded-md font-heading font-semibold text-sm transition shadow-lg shadow-primary/10 cursor-pointer"
+                className="bg-primary hover:bg-primary-container text-on-primary px-5 py-2 rounded-md font-heading font-semibold text-sm transition shadow-lg shadow-primary/10 cursor-pointer flex items-center space-x-1.5"
               >
-                <span>{user ? 'Go to Studio' : 'Get Started'}</span> <i className="fa-solid fa-arrow-right ml-1"></i>
+                <span>{user ? 'Open FlipStudio Editor' : 'Get Started'}</span> <i className="fa-solid fa-arrow-right ml-1"></i>
               </button>
             </div>
           </header>

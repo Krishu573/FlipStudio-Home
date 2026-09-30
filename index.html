@@ -102,8 +102,20 @@
                 </div>
                 <span class="text-xl font-heading tracking-tight select-none"><span class="text-white font-extrabold">Flip</span><span class="text-[#c0c1ff] font-bold">Studio</span></span>
             </div>
-            <div>
-                <button id="nav-get-started-btn" onclick="handleGetStarted()" class="bg-primary hover:bg-primary-container text-on-primary px-5 py-2 rounded-md font-heading font-semibold text-sm transition shadow-lg shadow-primary/10 cursor-pointer">
+            <div class="flex items-center space-x-3">
+                <!-- User Profile Display when signed in -->
+                <div id="nav-user-profile" class="hidden items-center space-x-2.5 bg-surface-container-lowest border border-outline-variant/30 px-3 py-1.5 rounded-full">
+                    <img id="nav-user-avatar" src="" alt="Profile" class="w-6 h-6 rounded-full object-cover hidden border border-primary/40"/>
+                    <div id="nav-user-avatar-fallback" class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <span id="nav-user-name" class="text-xs font-heading font-medium text-on-surface truncate max-w-[140px]">User</span>
+                    <button onclick="handleLogout()" class="text-on-surface-variant hover:text-red-400 text-xs ml-1 transition cursor-pointer" title="Sign out">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+
+                <button id="nav-get-started-btn" onclick="handleGetStarted()" class="bg-primary hover:bg-primary-container text-on-primary px-5 py-2 rounded-md font-heading font-semibold text-sm transition shadow-lg shadow-primary/10 cursor-pointer flex items-center space-x-2">
                     <span id="nav-get-started-text">Get Started</span> <i class="fa-solid fa-arrow-right ml-1"></i>
                 </button>
             </div>
@@ -174,33 +186,6 @@
                 </svg>
                 <span id="google-btn-text">Continue with Google</span>
             </button>
-
-            <!-- Destination Website Link Configuration Box -->
-            <div class="mt-6 pt-5 border-t border-outline-variant/30 text-left">
-                <div class="flex items-center justify-between mb-1.5">
-                    <label for="target-website-input" class="text-[11px] font-heading font-medium text-on-surface-variant flex items-center space-x-1.5">
-                        <i class="fa-solid fa-link text-primary text-xs"></i>
-                        <span>Redirect to website after sign-in:</span>
-                    </label>
-                    <span id="redirect-status-badge" class="text-[10px] text-emerald-400 font-mono hidden flex items-center space-x-1">
-                        <i class="fa-solid fa-check"></i>
-                        <span>Saved</span>
-                    </span>
-                </div>
-                <div class="relative">
-                    <input 
-                        type="url" 
-                        id="target-website-input" 
-                        value="https://krishu573.github.io/FlipStudio-Editor/"
-                        placeholder="https://krishu573.github.io/FlipStudio-Editor/" 
-                        class="bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary w-full placeholder:text-on-surface-variant/40"
-                        oninput="saveCustomRedirectUrl(this.value)"
-                    />
-                </div>
-                <p class="text-[10px] text-on-surface-variant/60 mt-1.5 leading-normal">
-                    You can paste your link here anytime or define <code class="text-primary font-mono">TARGET_REDIRECT_URL</code> in code.
-                </p>
-            </div>
         </div>
     </div>
 
@@ -395,20 +380,29 @@
             }
         }
 
-        function isUserLoggedIn() {
-            if (currentUser && currentUser.email) return true;
+        function getStoredUser() {
+            if (currentUser && currentUser.email) return currentUser;
             try {
-                const saved = localStorage.getItem('flipcraft_google_user');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    if (parsed && parsed.email) return true;
+                const s1 = localStorage.getItem('flipstudio_auth_user');
+                if (s1) {
+                    const parsed = JSON.parse(s1);
+                    if (parsed && parsed.email) return parsed;
+                }
+                const s2 = localStorage.getItem('flipcraft_google_user');
+                if (s2) {
+                    const parsed = JSON.parse(s2);
+                    if (parsed && parsed.email) return parsed;
                 }
             } catch (e) {}
-            return false;
+            return null;
+        }
+
+        function isUserLoggedIn() {
+            return getStoredUser() !== null;
         }
 
         // When user clicks 'Get Started':
-        // If already signed in -> Go directly to destination file / page
+        // If already signed in -> Go directly to FlipStudio Editor (never ask to sign in again)
         // If not signed in -> Ask to sign in with Google
         function handleGetStarted() {
             if (isUserLoggedIn()) {
@@ -419,14 +413,45 @@
         }
 
         function updateAuthUI(isLoggedIn, user = null) {
+            const activeUser = user || getStoredUser();
             const navText = document.getElementById('nav-get-started-text');
             const heroText = document.getElementById('hero-get-started-text');
-            if (isLoggedIn) {
-                if (navText) navText.innerText = 'Go to Dashboard';
-                if (heroText) heroText.innerText = 'Continue to Dashboard';
+            const userProfilePill = document.getElementById('nav-user-profile');
+            const userAvatarImg = document.getElementById('nav-user-avatar');
+            const userAvatarFallback = document.getElementById('nav-user-avatar-fallback');
+            const userNameDisplay = document.getElementById('nav-user-name');
+
+            if (isLoggedIn && activeUser) {
+                const email = activeUser.email || activeUser.user_metadata?.email || '';
+                const name = activeUser.user_metadata?.full_name || activeUser.full_name || activeUser.name || (email ? email.split('@')[0] : 'User');
+                const avatar = activeUser.user_metadata?.avatar_url || activeUser.avatar_url || activeUser.picture || activeUser.user_metadata?.picture || '';
+
+                if (navText) navText.innerText = 'Open FlipStudio Editor';
+                if (heroText) heroText.innerText = 'Open FlipStudio Editor';
+
+                if (userProfilePill) {
+                    userProfilePill.classList.remove('hidden');
+                    userProfilePill.classList.add('flex');
+                }
+                if (userNameDisplay) {
+                    userNameDisplay.innerText = name;
+                    userNameDisplay.title = email;
+                }
+                if (avatar && userAvatarImg) {
+                    userAvatarImg.src = avatar;
+                    userAvatarImg.classList.remove('hidden');
+                    if (userAvatarFallback) userAvatarFallback.classList.add('hidden');
+                } else if (userAvatarFallback) {
+                    userAvatarFallback.classList.remove('hidden');
+                    if (userAvatarImg) userAvatarImg.classList.add('hidden');
+                }
             } else {
                 if (navText) navText.innerText = 'Get Started';
                 if (heroText) heroText.innerText = 'Get Started';
+                if (userProfilePill) {
+                    userProfilePill.classList.add('hidden');
+                    userProfilePill.classList.remove('flex');
+                }
             }
         }
 
@@ -434,7 +459,7 @@
             // Normalize viewName (supports both 'editor' and 'view-editor')
             const normalized = viewName.startsWith('view-') ? viewName.replace('view-', '') : viewName;
             
-            // If navigating to login but user is already signed in, redirect directly to the other file
+            // If navigating to login but user is already signed in, redirect directly to the editor
             if (normalized === 'login' && isUserLoggedIn()) {
                 navigateToDestination();
                 return;
@@ -453,14 +478,36 @@
             }
         }
 
-        // Store user profile on Supabase database
+        // Store user profile credentials (email, profile picture, name) on Supabase
         async function syncUserToSupabase(user) {
             if (!supabaseClient || !user) return;
+            const email = user.email || user.user_metadata?.email || '';
+            const name = user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.given_name || (email ? email.split('@')[0] : 'User');
+            const avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || user.avatar_url || user.picture || '';
+
+            // 1. Permanently persist name, avatar picture, and email in Supabase Auth (auth.users)
+            try {
+                await supabaseClient.auth.updateUser({
+                    data: {
+                        full_name: name,
+                        name: name,
+                        avatar_url: avatar,
+                        picture: avatar,
+                        email: email
+                    }
+                });
+            } catch (e) {
+                console.log('Supabase auth metadata update notice:', e);
+            }
+
+            // 2. Persist to database tables
             const payload = {
                 id: user.id,
-                email: user.email || user.user_metadata?.email || '',
-                full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
-                avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
+                email: email,
+                full_name: name,
+                name: name,
+                avatar_url: avatar,
+                picture: avatar,
                 provider: 'google',
                 last_sign_in_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
@@ -469,31 +516,51 @@
             try {
                 await supabaseClient.from('profiles').upsert(payload, { onConflict: 'id' });
             } catch (e) {
-                console.log('Profiles sync note:', e);
+                console.log('Profiles table sync:', e);
             }
             try {
                 await supabaseClient.from('users').upsert(payload, { onConflict: 'id' });
             } catch (e) {
-                console.log('Users sync note:', e);
+                console.log('Users table sync:', e);
+            }
+            try {
+                await supabaseClient.from('user_profiles').upsert(payload, { onConflict: 'id' });
+            } catch (e) {
+                console.log('user_profiles table sync:', e);
             }
         }
 
         function onLoginSuccess(user, autoNavigate = true) {
             currentUser = user;
-            const email = user.email || user.user_metadata?.email || 'Connected Google User';
-            const displayElem = document.getElementById('user-email-display');
-            const pillElem = document.getElementById('user-display-pill');
-            if (displayElem) displayElem.innerText = email;
-            if (pillElem) {
-                pillElem.classList.remove('hidden');
-                pillElem.classList.add('flex');
-            }
+            const email = user.email || user.user_metadata?.email || 'User';
+            const name = user.user_metadata?.full_name || user.user_metadata?.name || user.full_name || user.name || (email ? email.split('@')[0] : 'User');
+            const avatar = user.user_metadata?.avatar_url || user.avatar_url || user.picture || user.user_metadata?.picture || '';
+
+            const userToStore = {
+                id: user.id || 'user_' + Date.now(),
+                email: email,
+                name: name,
+                full_name: name,
+                avatar_url: avatar,
+                picture: avatar,
+                user_metadata: {
+                    email: email,
+                    name: name,
+                    full_name: name,
+                    avatar_url: avatar,
+                    picture: avatar
+                }
+            };
 
             try {
-                localStorage.setItem('flipcraft_google_user', JSON.stringify({ email: email, id: user.id }));
+                localStorage.setItem('flipstudio_auth_user', JSON.stringify(userToStore));
+                localStorage.setItem('flipcraft_google_user', JSON.stringify(userToStore));
             } catch (e) {}
 
-            updateAuthUI(true, user);
+            updateAuthUI(true, userToStore);
+
+            // Sync credentials to Supabase
+            syncUserToSupabase(user);
 
             if (autoNavigate) {
                 navigateToDestination();
@@ -572,6 +639,7 @@
             }
             currentUser = null;
             try {
+                localStorage.removeItem('flipstudio_auth_user');
                 localStorage.removeItem('flipcraft_google_user');
             } catch (e) {}
 
@@ -590,7 +658,7 @@
             }
 
             showView('welcome');
-            showToast('Signed out of workspace.', 'info');
+            showToast('Signed out successfully.', 'info');
         }
 
         // Initialize session on load
@@ -606,18 +674,31 @@
                 }
             } catch (e) {}
 
+            // 1. Immediate local session restore so UI shows logged-in state without delay and never asks to sign in again
+            const storedUser = getStoredUser();
+            if (storedUser) {
+                currentUser = storedUser;
+                updateAuthUI(true, storedUser);
+            }
+
+            const isOAuthRedirect = window.location.search.includes('code=') || window.location.hash.includes('access_token=');
+
             if (supabaseClient) {
                 supabaseClient.auth.onAuthStateChange(async (event, session) => {
                     if (session && session.user) {
                         await syncUserToSupabase(session.user);
-                        onLoginSuccess(session.user);
+                        const shouldRedirect = isOAuthRedirect || event === 'SIGNED_IN';
+                        onLoginSuccess(session.user, shouldRedirect);
                         try {
-                            if (window.location.search.includes('code=') || window.location.hash.includes('access_token=')) {
+                            if (isOAuthRedirect) {
                                 window.history.replaceState(null, '', window.location.pathname);
                             }
                         } catch (e) {}
                     } else if (event === 'SIGNED_OUT') {
-                        showView('welcome');
+                        currentUser = null;
+                        localStorage.removeItem('flipstudio_auth_user');
+                        localStorage.removeItem('flipcraft_google_user');
+                        updateAuthUI(false);
                     }
                 });
 
@@ -625,7 +706,7 @@
                     const { data: { session } } = await supabaseClient.auth.getSession();
                     if (session && session.user) {
                         await syncUserToSupabase(session.user);
-                        onLoginSuccess(session.user);
+                        onLoginSuccess(session.user, isOAuthRedirect);
                         return;
                     }
                 } catch (err) {
@@ -633,18 +714,9 @@
                 }
             }
 
-            try {
-                const saved = localStorage.getItem('flipcraft_google_user');
-                if (saved) {
-                    const u = JSON.parse(saved);
-                    if (u && u.email) {
-                        onLoginSuccess(u);
-                        return;
-                    }
-                }
-            } catch (e) {}
-
-            showView('welcome');
+            if (!storedUser) {
+                showView('welcome');
+            }
         });
 
         // PDF Processing & Flipbook Initialization

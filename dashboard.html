@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlipCraft Studio - Dashboard &amp; Workspace</title>
+    <meta name="description" content="Manage your flipbooks, upload documents, and customize your pages.">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="alternate icon" href="/favicon.ico">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- PDF.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
+
+    <!-- StPageFlip library -->
+    <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+
+    <!-- Supabase JS Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        surface: '#0b1326',
+                        'surface-dim': '#0b1326',
+                        'surface-bright': '#31394d',
+                        'surface-container-lowest': '#060e20',
+                        'surface-container-low': '#131b2e',
+                        'surface-container': '#171f33',
+                        'surface-container-high': '#222a3d',
+                        'surface-container-highest': '#2d3449',
+                        'on-surface': '#dae2fd',
+                        'on-surface-variant': '#c7c4d7',
+                        outline: '#908fa0',
+                        'outline-variant': '#464554',
+                        primary: '#c0c1ff',
+                        'on-primary': '#1000a9',
+                        'primary-container': '#8083ff',
+                        'on-primary-container': '#0d0096',
+                        background: '#0b1326',
+                        'on-background': '#dae2fd',
+                        'surface-variant': '#2d3449'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0b1326; color: #dae2fd; font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .st-page-flip-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .st-page-flip-container canvas,
+        .st-page-flip-container img {
+            box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.6);
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col selection:bg-primary selection:text-on-primary">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm"></div>
+
+    <!-- Main Navigation Bar -->
+    <header class="bg-surface-container border-b border-outline-variant/30 px-6 py-3 flex justify-between items-center z-20 flex-shrink-0">
+        <div class="flex items-center space-x-6">
+            <a href="index.html" class="flex items-center space-x-3 group">
+                <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 group-hover:border-primary transition">
+                    <i class="fa-solid fa-book-open-reader text-primary text-sm"></i>
+                </div>
+                <span class="font-heading tracking-wide text-sm select-none"><span class="text-white font-extrabold">Flip</span><span class="text-[#c0c1ff] font-bold">Studio</span></span>
+            </a>
+
+            <!-- Navigation Tabs for your pages -->
+            <nav class="hidden md:flex items-center space-x-1">
+                <button onclick="switchTab('workspace')" id="tab-btn-workspace" class="px-3.5 py-1.5 rounded-lg text-xs font-heading font-medium bg-surface-container-high text-primary border border-primary/30 transition flex items-center space-x-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Flipbook Studio</span>
+                </button>
+                <button onclick="switchTab('newpage')" id="tab-btn-newpage" class="px-3.5 py-1.5 rounded-lg text-xs font-heading font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition flex items-center space-x-2">
+                    <i class="fa-regular fa-file-lines"></i>
+                    <span>New Page</span>
+                </button>
+                <a href="https://krishu573.github.io/FlipStudio-Editor/" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg text-xs font-heading font-medium bg-primary/20 hover:bg-primary/30 text-primary border border-primary/40 transition flex items-center space-x-1.5 ml-2">
+                    <span>FlipStudio Editor</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Right Side: User Profile & Actions -->
+        <div class="flex items-center space-x-3">
+            <div id="user-display-pill" class="flex items-center space-x-2 bg-surface-container-lowest border border-outline-variant/30 px-3 py-1 rounded-full">
+                <div id="user-avatar-container" class="w-5 h-5 rounded-full overflow-hidden bg-primary/20 flex items-center justify-center">
+                    <i id="default-avatar-icon" class="fa-solid fa-user text-[10px] text-primary"></i>
+                    <img id="user-avatar-img" class="w-full h-full object-cover hidden" alt="Avatar"/>
+                </div>
+                <span id="user-email-display" class="text-xs text-on-surface font-medium truncate max-w-[180px]">Loading user...</span>
+            </div>
+
+            <!-- Back to Home Button -->
+            <a href="index.html" class="bg-surface-container-high hover:bg-surface-bright text-on-surface-variant hover:text-on-surface px-3 py-1.5 rounded-md text-xs font-heading font-medium transition border border-outline-variant/30 flex items-center space-x-1.5" title="Go back to Home">
+                <i class="fa-solid fa-house text-xs"></i>
+                <span class="hidden sm:inline">Home</span>
+            </a>
+
+            <!-- Logout Button -->
+            <button onclick="handleLogout()" class="bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 px-3 py-1.5 rounded-md text-xs font-heading font-medium transition cursor-pointer flex items-center space-x-1.5" title="Sign Out">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span class="hidden sm:inline">Sign Out</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Page Content Container -->
+    <main class="flex-grow flex flex-col relative overflow-hidden bg-surface-dim">
+
+        <!-- ================= TAB 1: FLIPBOOK STUDIO WORKSPACE ================= -->
+        <div id="page-workspace" class="flex-grow flex flex-col h-full overflow-hidden">
+            <!-- Studio Toolbar -->
+            <div class="bg-surface-container-low border-b border-outline-variant/20 px-6 py-2.5 flex justify-between items-center z-10 flex-shrink-0">
+                <div class="flex items-center space-x-2 text-xs text-on-surface-variant">
+                    <i class="fa-solid fa-layer-group text-primary"></i>
+                    <span class="font-medium text-on-surface">Digital Flipbook Studio</span>
+                    <span>&bull;</span>
+                    <span>Ready to convert PDFs into 3D interactive books</span>
+                </div>
+                <label class="bg-primary hover:bg-primary-container text-on-primary px-3.5 py-1.5 rounded-md cursor-pointer text-xs font-heading font-semibold transition flex items-center space-x-2 shadow-sm">
+                    <i class="fa-solid fa-file-arrow-up"></i>
+                    <span>Upload &amp; Convert PDF</span>
+                    <input type="file" id="pdf-file-input" accept=".pdf,application/pdf" class="hidden"/>
+                </label>
+            </div>
+
+            <!-- Viewport Area -->
+            <div class="flex-grow flex flex-col relative overflow-hidden items-center justify-center p-4">
+                <!-- Loading Indicator Overlay -->
+                <div id="loading-spinner" class="absolute inset-0 bg-surface-dim/90 backdrop-blur-sm z-30 flex flex-col items-center justify-center hidden">
+                    <i class="fa-solid fa-spinner fa-spin text-primary text-3xl mb-3"></i>
+                    <p id="loading-text" class="text-xs font-medium text-on-surface-variant tracking-wide">Parsing document pages...</p>
+                </div>
+
+                <!-- Empty State Prompt -->
+                <div id="empty-state" class="text-center space-y-4 max-w-md">
+                    <div class="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center mx-auto border border-outline-variant/30 shadow-lg">
+                        <i class="fa-regular fa-file-pdf text-primary text-2xl"></i>
+                    </div>
+                    <h3 class="text-base font-heading font-semibold text-on-surface">No Document Loaded</h3>
+                    <p class="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">
+                        Upload any PDF file using the control above to render your 3D digital flipbook canvas.
+                    </p>
+                    <div class="pt-2 flex items-center justify-center">
+                        <label class="bg-primary hover:bg-primary-container text-on-primary px-5 py-2.5 rounded-md cursor-pointer text-xs font-heading font-semibold transition flex items-center space-x-2 shadow-sm">
+                            <i class="fa-solid fa-upload"></i>
+                            <span>Select PDF File</span>
+                            <input type="file" accept=".pdf,application/pdf" onchange="document.getElementById('pdf-file-input').files = this.files; document.getElementById('pdf-file-input').dispatchEvent(new Event('change'));" class="hidden"/>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Fullscreen Target Wrapper -->
+                <div id="fullscreen-target" class="flex flex-col items-center justify-center w-full h-full relative hidden bg-surface-dim">
+                    <!-- Floating Control Dock -->
+                    <div class="absolute top-4 z-20 bg-surface-container-high/90 backdrop-blur-md border border-outline-variant/40 px-4 py-1.5 rounded-full flex items-center space-x-4 shadow-xl">
+                        <button onclick="prevPage()" class="text-on-surface-variant hover:text-on-surface transition text-xs cursor-pointer p-1" title="Previous Page (or Left Arrow)">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <span id="page-indicator" class="text-xs font-mono text-on-surface tracking-wider select-none">Page 0 / 0</span>
+                        <button onclick="nextPage()" class="text-on-surface-variant hover:text-on-surface transition text-xs cursor-pointer p-1" title="Next Page (or Right Arrow)">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                        <div class="h-3.5 w-[1px] bg-outline-variant/40"></div>
+                        <button onclick="toggleFullScreen()" class="text-on-surface-variant hover:text-on-surface transition text-xs cursor-pointer p-1" title="Toggle Fullscreen">
+                            <i id="fs-icon" class="fa-solid fa-expand"></i>
+                        </button>
+                    </div>
+
+                    <!-- Flipbook Staging Area -->
+                    <div id="book-container" class="flex items-center justify-center w-full h-full pt-12 pb-4 overflow-hidden">
+                        <div id="book" class="st-page-flip-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: TEMPLATE FOR YOUR NEW PAGES ================= -->
+        <!-- YOU CAN ADD MORE PAGES OR CUSTOMIZE THIS SECTION -->
+        <div id="page-newpage" class="flex-grow flex flex-col h-full overflow-y-auto p-6 md:p-10 hidden">
+            <div class="max-w-4xl mx-auto w-full space-y-6">
+                <!-- Page Header -->
+                <div class="border-b border-outline-variant/30 pb-4">
+                    <h2 class="text-2xl font-heading font-bold text-on-surface">Your New Page</h2>
+                    <p class="text-xs text-on-surface-variant mt-1">
+                        This file (<code class="bg-surface-container px-2 py-0.5 rounded text-primary">dashboard.html</code>) is running automatically after sign-in. You can add your custom sections, tables, forms, or views here!
+                    </p>
+                </div>
+
+                <!-- Template Card -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div class="bg-surface-container border border-outline-variant/30 rounded-xl p-5 shadow-lg">
+                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-3">
+                            <i class="fa-solid fa-shield-halved text-lg"></i>
+                        </div>
+                        <h4 class="font-heading font-semibold text-sm text-on-surface">Authentication Status</h4>
+                        <p class="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
+                            Secured via Google sign-in and Supabase session. Profile metadata is automatically loaded.
+                        </p>
+                        <div class="mt-4 pt-3 border-t border-outline-variant/20 text-xs font-mono text-primary flex items-center space-x-1.5">
+                            <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                            <span>Authenticated</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-surface-container border border-outline-variant/30 rounded-xl p-5 shadow-lg">
+                        <div class="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 mb-3">
+                            <i class="fa-solid fa-code-merge text-lg"></i>
+                        </div>
+                        <h4 class="font-heading font-semibold text-sm text-on-surface">Add Custom HTML / Logic</h4>
+                        <p class="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
+                            Easily insert cards, data tables, file uploaders, or interactive tools directly in this file.
+                        </p>
+                        <div class="mt-4 pt-3 border-t border-outline-variant/20 text-xs font-mono text-on-surface-variant">
+                            <span>Ready to edit</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-surface-container border border-outline-variant/30 rounded-xl p-5 shadow-lg">
+                        <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 mb-3">
+                            <i class="fa-solid fa-database text-lg"></i>
+                        </div>
+                        <h4 class="font-heading font-semibold text-sm text-on-surface">Supabase Integration</h4>
+                        <p class="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
+                            Pre-configured Supabase client is accessible globally via <code class="text-primary">supabaseClient</code>.
+                        </p>
+                        <div class="mt-4 pt-3 border-t border-outline-variant/20 text-xs font-mono text-purple-300">
+                            <span>Client connected</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Section Placeholder -->
+                <div class="bg-surface-container border border-dashed border-outline-variant/50 rounded-xl p-8 text-center space-y-3">
+                    <div class="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center mx-auto text-primary">
+                        <i class="fa-solid fa-plus text-xl"></i>
+                    </div>
+                    <h3 class="font-heading font-semibold text-base text-on-surface">Add Your Content Here</h3>
+                    <p class="text-xs text-on-surface-variant max-w-md mx-auto leading-relaxed">
+                        You can add more navigation tabs, subpages, charts, or flipbook libraries inside <code class="text-primary font-mono">dashboard.html</code>.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ================= JAVASCRIPT LOGIC ================= -->
+    <script>
+        const SUPABASE_URL = 'https://vichklqnaaxjaiqlkwpp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpY2hrbHFuYWF4amFpcWxrd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0Mzg5MTYsImV4cCI6MjEwNjAxNDkxNn0.wFvVHbA62jylhtG9K7YMOv9G9x9mefJkxaMpi5Uqph0';
+
+        let supabaseClient = null;
+        if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
+            try {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                    auth: {
+                        persistSession: true,
+                        autoRefreshToken: true,
+                        detectSessionInUrl: true,
+                        storage: window.localStorage
+                    }
+                });
+            } catch (err) {
+                console.warn('Supabase client init notice:', err);
+            }
+        }
+
+        let currentUser = null;
+        let pageFlipInstance = null;
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            const isError = type === 'error';
+            const isSuccess = type === 'success';
+
+            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-lg border shadow-2xl backdrop-blur-md transition duration-200 text-xs font-medium ${
+                isError ? 'bg-[#2d1519] border-red-500/40 text-red-200' :
+                isSuccess ? 'bg-[#102a1d] border-emerald-500/40 text-emerald-200' :
+                'bg-[#222a3d] border-[#464554]/50 text-[#dae2fd]'
+            }`;
+
+            const iconClass = isError ? 'fa-circle-exclamation text-red-400' :
+                             isSuccess ? 'fa-circle-check text-emerald-400' :
+                             'fa-circle-info text-[#c0c1ff]';
+
+            toast.innerHTML = `<i class="fa-solid ${iconClass}"></i><span class="flex-grow">${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 250);
+            }, 4000);
+        }
+
+        // Switch between subpage tabs
+        function switchTab(tabName) {
+            const workspacePage = document.getElementById('page-workspace');
+            const newpagePage = document.getElementById('page-newpage');
+            const tabBtnWorkspace = document.getElementById('tab-btn-workspace');
+            const tabBtnNewpage = document.getElementById('tab-btn-newpage');
+
+            if (tabName === 'workspace') {
+                if (workspacePage) workspacePage.classList.remove('hidden');
+                if (newpagePage) newpagePage.classList.add('hidden');
+                if (tabBtnWorkspace) {
+                    tabBtnWorkspace.className = 'px-3.5 py-1.5 rounded-lg text-xs font-heading font-medium bg-surface-container-high text-primary border border-primary/30 transition flex items-center space-x-2';
+                }
+                if (tabBtnNewpage) {
+                    tabBtnNewpage.className = 'px-3.5 py-1.5 rounded-lg text-xs font-heading font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition flex items-center space-x-2';
+                }
+            } else if (tabName === 'newpage') {
+                if (workspacePage) workspacePage.classList.add('hidden');
+                if (newpagePage) newpagePage.classList.remove('hidden');
+                if (tabBtnNewpage) {
+                    tabBtnNewpage.className = 'px-3.5 py-1.5 rounded-lg text-xs font-heading font-medium bg-surface-container-high text-primary border border-primary/30 transition flex items-center space-x-2';
+                }
+                if (tabBtnWorkspace) {
+                    tabBtnWorkspace.className = 'px-3.5 py-1.5 rounded-lg text-xs font-heading font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition flex items-center space-x-2';
+                }
+            }
+        }
+
+        // Populate User Info
+        function setProfileUI(user) {
+            currentUser = user;
+            const email = user.email || user.user_metadata?.email || 'Authenticated User';
+            const avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || user.avatar;
+
+            const emailElem = document.getElementById('user-email-display');
+            if (emailElem) emailElem.innerText = email;
+
+            const avatarImg = document.getElementById('user-avatar-img');
+            const defaultIcon = document.getElementById('default-avatar-icon');
+            if (avatar && avatarImg && defaultIcon) {
+                avatarImg.src = avatar;
+                avatarImg.classList.remove('hidden');
+                defaultIcon.classList.add('hidden');
+            }
+        }
+
+        // Check authentication on load
+        async function checkAuth() {
+            // First check Supabase session
+            if (supabaseClient) {
+                try {
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    if (session && session.user) {
+                        setProfileUI(session.user);
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Session check note:', e);
+                }
+            }
+
+            // Next check localStorage fallback
+            try {
+                const saved = localStorage.getItem('flipcraft_google_user');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && parsed.email) {
+                        setProfileUI(parsed);
+                        return;
+                    }
+                }
+            } catch (e) {}
+
+            // If not logged in, notify user and provide return option
+            showToast('No active session found. Please sign in.', 'error');
+            const emailElem = document.getElementById('user-email-display');
+            if (emailElem) emailElem.innerText = 'Guest User';
+        }
+
+        // Logout and redirect back to index.html
+        async function handleLogout() {
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.auth.signOut();
+                } catch (e) {}
+            }
+            try {
+                localStorage.removeItem('flipcraft_google_user');
+            } catch (e) {}
+
+            showToast('Signed out. Redirecting to home...', 'info');
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 500);
+        }
+
+        // Flipbook PDF Conversion & Initialization
+        const pdfInput = document.getElementById('pdf-file-input');
+        if (pdfInput) {
+            pdfInput.addEventListener('change', async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                    showToast('Please select a valid PDF file.', 'error');
+                    return;
+                }
+
+                const spinner = document.getElementById('loading-spinner');
+                const loadingText = document.getElementById('loading-text');
+                if (spinner) spinner.classList.remove('hidden');
+
+                try {
+                    const fileReader = new FileReader();
+                    fileReader.onload = async function() {
+                        try {
+                            const typedarray = new Uint8Array(this.result);
+                            const pdfDoc = await pdfjsLib.getDocument({
+                                data: typedarray,
+                                cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+                                cMapPacked: true,
+                            }).promise;
+
+                            const images = [];
+                            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                                if (loadingText) loadingText.innerText = `Rendering page ${i} of ${pdfDoc.numPages}...`;
+                                const page = await pdfDoc.getPage(i);
+                                const viewport = page.getViewport({ scale: 1.6 });
+
+                                const canvas = document.createElement('canvas');
+                                const context = canvas.getContext('2d');
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+
+                                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                                images.push(canvas.toDataURL('image/jpeg', 0.92));
+                            }
+
+                            if (spinner) spinner.classList.add('hidden');
+                            const emptyState = document.getElementById('empty-state');
+                            const fsTarget = document.getElementById('fullscreen-target');
+                            if (emptyState) emptyState.classList.add('hidden');
+                            if (fsTarget) fsTarget.classList.remove('hidden');
+
+                            initFlipbook(images);
+                            showToast('Flipbook converted! Drag corners or use arrow buttons to flip.', 'success');
+                        } catch (err) {
+                            console.error('PDF render error:', err);
+                            if (spinner) spinner.classList.add('hidden');
+                            showToast('Failed to process PDF pages: ' + err.message, 'error');
+                        }
+                    };
+                    fileReader.readAsArrayBuffer(file);
+                } catch (error) {
+                    console.error('File read error:', error);
+                    if (spinner) spinner.classList.add('hidden');
+                    showToast('Failed to read the selected PDF file.', 'error');
+                }
+            });
+        }
+
+        function initFlipbook(images) {
+            const bookElement = document.getElementById('book');
+            if (!bookElement) return;
+            bookElement.innerHTML = '';
+
+            if (pageFlipInstance) {
+                try {
+                    pageFlipInstance.destroy();
+                } catch (e) {}
+                pageFlipInstance = null;
+            }
+
+            const container = document.getElementById('book-container');
+            const containerWidth = container ? container.clientWidth : 800;
+            const targetWidth = Math.min(Math.max(Math.floor(containerWidth * 0.42), 290), 550);
+            const targetHeight = Math.floor(targetWidth * 1.414);
+
+            pageFlipInstance = new St.PageFlip(bookElement, {
+                width: targetWidth,
+                height: targetHeight,
+                size: 'stretch',
+                minWidth: 260,
+                maxWidth: 750,
+                minHeight: 360,
+                maxHeight: 1000,
+                showCover: true,
+                maxShadowOpacity: 0.5,
+                mobileScrollSupport: true,
+                usePortrait: true,
+                drawShadow: true
+            });
+
+            pageFlipInstance.loadFromImages(images);
+
+            pageFlipInstance.on('flip', (e) => {
+                const curr = (typeof e.data === 'number' ? e.data : pageFlipInstance.getCurrentPageIndex()) + 1;
+                updatePageIndicator(curr, pageFlipInstance.getPageCount());
+            });
+
+            pageFlipInstance.on('init', () => {
+                updatePageIndicator(pageFlipInstance.getCurrentPageIndex() + 1, pageFlipInstance.getPageCount());
+            });
+
+            setTimeout(() => {
+                if (pageFlipInstance) {
+                    updatePageIndicator(pageFlipInstance.getCurrentPageIndex() + 1, pageFlipInstance.getPageCount() || images.length);
+                }
+            }, 300);
+        }
+
+        function updatePageIndicator(current, total) {
+            const ind = document.getElementById('page-indicator');
+            if (ind) ind.innerText = `Page ${current} / ${total || 1}`;
+        }
+
+        function nextPage() {
+            if (pageFlipInstance) pageFlipInstance.flipNext();
+        }
+
+        function prevPage() {
+            if (pageFlipInstance) pageFlipInstance.flipPrev();
+        }
+
+        function toggleFullScreen() {
+            const target = document.getElementById('fullscreen-target');
+            if (!target) return;
+
+            if (!document.fullscreenElement) {
+                target.requestFullscreen().catch(err => {
+                    showToast(`Fullscreen error: ${err.message}`, 'error');
+                });
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            const fsIcon = document.getElementById('fs-icon');
+            if (!fsIcon) return;
+            if (document.fullscreenElement) {
+                fsIcon.classList.remove('fa-expand');
+                fsIcon.classList.add('fa-compress');
+            } else {
+                fsIcon.classList.remove('fa-compress');
+                fsIcon.classList.add('fa-expand');
+            }
+        });
+
+        // Keyboard navigation
+        window.addEventListener('keydown', (e) => {
+            if (pageFlipInstance) {
+                if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+                    nextPage();
+                } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                    prevPage();
+                }
+            }
+        });
+
+        // Store user profile on Supabase database
+        async function syncUserToSupabase(user) {
+            if (!supabaseClient || !user) return;
+            const payload = {
+                id: user.id,
+                email: user.email || user.user_metadata?.email || '',
+                full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+                avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
+                provider: 'google',
+                last_sign_in_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            try {
+                await supabaseClient.from('profiles').upsert(payload, { onConflict: 'id' });
+            } catch (e) {
+                console.log('Profiles sync note:', e);
+            }
+            try {
+                await supabaseClient.from('users').upsert(payload, { onConflict: 'id' });
+            } catch (e) {
+                console.log('Users sync note:', e);
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            if (supabaseClient) {
+                supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                    if (session && session.user) {
+                        await syncUserToSupabase(session.user);
+                        setProfileUI(session.user);
+                        try {
+                            localStorage.setItem('flipcraft_google_user', JSON.stringify({
+                                email: session.user.email || session.user.user_metadata?.email,
+                                name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
+                                avatar: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
+                                id: session.user.id
+                            }));
+                            if (window.location.search.includes('code=') || window.location.hash.includes('access_token=')) {
+                                window.history.replaceState(null, '', window.location.pathname);
+                            }
+                        } catch (e) {}
+                    }
+                });
+            }
+            checkAuth();
+        });
+    </script>
+</body>
+</html>

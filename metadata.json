@@ -1,0 +1,6 @@
+{
+  "name": "FlipCraft Studio",
+  "description": "Transform any PDF into a high-performance 3D digital flipbook with interactive page turning.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

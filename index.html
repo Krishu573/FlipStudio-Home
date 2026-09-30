@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlipCraft Studio - PDF to Digital Flipbook</title>
+    <meta name="description" content="Transform any PDF into a high-performance 3D digital flipbook with interactive page turning.">
+    <meta property="og:title" content="FlipCraft Studio - PDF to Digital Flipbook">
+    <meta property="og:description" content="Transform any PDF into a high-performance 3D digital flipbook with interactive page turning.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="alternate icon" href="/favicon.ico">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- PDF.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
+
+    <!-- StPageFlip library -->
+    <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+
+    <!-- Supabase JS Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        surface: '#0b1326',
+                        'surface-dim': '#0b1326',
+                        'surface-bright': '#31394d',
+                        'surface-container-lowest': '#060e20',
+                        'surface-container-low': '#131b2e',
+                        'surface-container': '#171f33',
+                        'surface-container-high': '#222a3d',
+                        'surface-container-highest': '#2d3449',
+                        'on-surface': '#dae2fd',
+                        'on-surface-variant': '#c7c4d7',
+                        outline: '#908fa0',
+                        'outline-variant': '#464554',
+                        primary: '#c0c1ff',
+                        'on-primary': '#1000a9',
+                        'primary-container': '#8083ff',
+                        'on-primary-container': '#0d0096',
+                        background: '#0b1326',
+                        'on-background': '#dae2fd',
+                        'surface-variant': '#2d3449'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0b1326; color: #dae2fd; font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .st-page-flip-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .st-page-flip-container canvas,
+        .st-page-flip-container img {
+            box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.6);
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col selection:bg-primary selection:text-on-primary">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm"></div>
+
+    <!-- ================= 1. WELCOME PAGE ================= -->
+    <div id="view-welcome" class="flex flex-col min-h-screen">
+        <header class="flex justify-between items-center px-8 py-6 border-b border-outline-variant/30 bg-surface-container-low">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
+                    <i class="fa-solid fa-book-open-reader text-primary text-lg"></i>
+                </div>
+                <span class="text-xl font-heading tracking-tight select-none"><span class="text-white font-extrabold">Flip</span><span class="text-[#c0c1ff] font-bold">Studio</span></span>
+            </div>
+            <div>
+                <button id="nav-get-started-btn" onclick="handleGetStarted()" class="bg-primary hover:bg-primary-container text-on-primary px-5 py-2 rounded-md font-heading font-semibold text-sm transition shadow-lg shadow-primary/10 cursor-pointer">
+                    <span id="nav-get-started-text">Get Started</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-grow flex flex-col items-center justify-center text-center px-4 max-w-4xl mx-auto space-y-6 py-12">
+            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight">
+                Transform any PDF into a <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary-container">Digital Flipbook</span>
+            </h1>
+            <p class="text-on-surface-variant text-base md:text-lg max-w-2xl font-sans">
+                Experience high-performance 3D page-turning rendering locally inside your browser.
+            </p>
+            <div class="pt-2">
+                <button id="hero-get-started-btn" onclick="handleGetStarted()" class="bg-primary hover:bg-primary-container text-on-primary px-8 py-3 rounded-lg font-heading font-semibold text-sm transition shadow-xl shadow-primary/20 transform hover:-translate-y-0.5 cursor-pointer">
+                    <span id="hero-get-started-text">Get Started</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+
+            <!-- Feature highlights grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-10 text-left w-full max-w-2xl">
+                <div class="bg-surface-container/70 border border-outline-variant/30 p-5 rounded-xl">
+                    <i class="fa-solid fa-cube text-primary mb-3 text-xl"></i>
+                    <h4 class="font-heading font-semibold text-sm text-on-surface">3D Physics Simulation</h4>
+                    <p class="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
+                        StPageFlip dual-spread rendering with shadow gradients and interactive page dragging for a lifelike reading feel.
+                    </p>
+                </div>
+                <div class="bg-surface-container/70 border border-outline-variant/30 p-5 rounded-xl">
+                    <i class="fa-solid fa-bolt text-primary mb-3 text-xl"></i>
+                    <h4 class="font-heading font-semibold text-sm text-on-surface">Client-Side PDF Engine</h4>
+                    <p class="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
+                        High-speed PDF.js rendering directly inside your browser for maximum speed, privacy, and crisp retina resolution.
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ================= 2. GOOGLE LOGIN PAGE ================= -->
+    <div id="view-login" class="hidden flex-grow flex items-center justify-center px-4 min-h-screen py-10">
+        <div class="bg-surface-container border border-outline-variant/30 p-8 rounded-xl w-full max-w-md shadow-2xl relative">
+            <button onclick="showView('welcome')" class="absolute top-4 left-4 text-on-surface-variant hover:text-on-surface text-xs font-medium flex items-center transition cursor-pointer">
+                <i class="fa-solid fa-arrow-left mr-1.5"></i> Back
+            </button>
+            <div class="text-center mt-6 mb-8">
+                <div class="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 border border-primary/20 shadow-inner">
+                    <svg class="w-7 h-7" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                </div>
+                <h2 class="text-xl font-heading font-bold text-on-surface">Sign in with Google</h2>
+                <p class="text-xs text-on-surface-variant mt-2 max-w-xs mx-auto leading-relaxed">
+                    Click below to continue to the Google login page. Your user profile will be securely stored on Supabase.
+                </p>
+            </div>
+
+            <!-- Supabase Google Login Button -->
+            <button id="google-login-btn" onclick="handleGoogleLogin()" class="w-full bg-surface-container-lowest hover:bg-surface-container-high text-on-surface border border-outline-variant/40 py-3 rounded-lg font-heading font-medium text-sm transition flex items-center justify-center space-x-3 shadow-md hover:shadow-lg cursor-pointer">
+                <i id="google-btn-spinner" class="fa-solid fa-spinner fa-spin text-primary hidden"></i>
+                <svg id="google-btn-icon" class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span id="google-btn-text">Continue with Google</span>
+            </button>
+
+            <!-- Destination Website Link Configuration Box -->
+            <div class="mt-6 pt-5 border-t border-outline-variant/30 text-left">
+                <div class="flex items-center justify-between mb-1.5">
+                    <label for="target-website-input" class="text-[11px] font-heading font-medium text-on-surface-variant flex items-center space-x-1.5">
+                        <i class="fa-solid fa-link text-primary text-xs"></i>
+                        <span>Redirect to website after sign-in:</span>
+                    </label>
+                    <span id="redirect-status-badge" class="text-[10px] text-emerald-400 font-mono hidden flex items-center space-x-1">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Saved</span>
+                    </span>
+                </div>
+                <div class="relative">
+                    <input 
+                        type="url" 
+                        id="target-website-input" 
+                        value="https://krishu573.github.io/FlipStudio-Editor/"
+                        placeholder="https://krishu573.github.io/FlipStudio-Editor/" 
+                        class="bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary w-full placeholder:text-on-surface-variant/40"
+                        oninput="saveCustomRedirectUrl(this.value)"
+                    />
+                </div>
+                <p class="text-[10px] text-on-surface-variant/60 mt-1.5 leading-normal">
+                    You can paste your link here anytime or define <code class="text-primary font-mono">TARGET_REDIRECT_URL</code> in code.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 3. EDITOR DASHBOARD ================= -->
+    <div id="view-editor" class="hidden flex flex-col h-screen overflow-hidden">
+        <!-- Top Navigation Bar -->
+        <header class="bg-surface-container border-b border-outline-variant/30 px-6 py-3 flex justify-between items-center z-10">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center border border-primary/20">
+                    <i class="fa-solid fa-book-open-reader text-primary text-sm"></i>
+                </div>
+                <span class="font-heading font-bold text-sm text-on-surface tracking-wide">FlipCraft Studio Workspace</span>
+            </div>
+            <div class="flex items-center space-x-3">
+                <div id="user-display-pill" class="hidden items-center space-x-2 bg-surface-container-lowest border border-outline-variant/30 px-2.5 py-1 rounded-full">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span id="user-email-display" class="text-xs text-on-surface-variant font-medium"></span>
+                </div>
+                <label class="bg-primary hover:bg-primary-container text-on-primary px-3.5 py-1.5 rounded-md cursor-pointer text-xs font-heading font-semibold transition flex items-center space-x-2 shadow-sm">
+                    <i class="fa-solid fa-file-arrow-up"></i>
+                    <span>Upload &amp; Convert PDF</span>
+                    <input type="file" id="pdf-file-input" accept=".pdf,application/pdf" class="hidden"/>
+                </label>
+                <button onclick="handleLogout()" class="bg-surface-container-high hover:bg-surface-bright text-on-surface-variant hover:text-on-surface px-3 py-1.5 rounded-md text-xs transition border border-outline-variant/30 cursor-pointer" title="Log Out">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Viewport Canvas -->
+        <div class="flex-grow flex flex-col relative overflow-hidden bg-surface-dim items-center justify-center p-4">
+            <!-- Loading Indicator Overlay -->
+            <div id="loading-spinner" class="absolute inset-0 bg-surface-dim/90 backdrop-blur-sm z-30 flex flex-col items-center justify-center hidden">
+                <i class="fa-solid fa-spinner fa-spin text-primary text-3xl mb-3"></i>
+                <p id="loading-text" class="text-xs font-medium text-on-surface-variant tracking-wide">Parsing document pages...</p>
+            </div>
+
+            <!-- Empty State Prompt -->
+            <div id="empty-state" class="text-center space-y-4 max-w-md">
+                <div class="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center mx-auto border border-outline-variant/30 shadow-lg">
+                    <i class="fa-regular fa-file-pdf text-primary text-2xl"></i>
+                </div>
+                <h3 class="text-base font-heading font-semibold text-on-surface">No Document Loaded</h3>
+                <p class="text-xs text-on-surface-variant max-w-xs mx-auto leading-relaxed">Upload any PDF file using the control above to render your 3D digital flipbook canvas.</p>
+                <div class="pt-2 flex items-center justify-center">
+                    <label class="bg-primary hover:bg-primary-container text-on-primary px-5 py-2.5 rounded-md cursor-pointer text-xs font-heading font-semibold transition flex items-center space-x-2 shadow-sm">
+                        <i class="fa-solid fa-upload"></i>
+                        <span>Select PDF File</span>
+                        <input type="file" accept=".pdf,application/pdf" onchange="document.getElementById('pdf-file-input').files = this.files; document.getElementById('pdf-file-input').dispatchEvent(new Event('change'));" class="hidden"/>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Fullscreen Target Wrapper -->
+            <div id="fullscreen-target" class="flex flex-col items-center justify-center w-full h-full relative hidden bg-surface-dim">
+                <!-- Floating Control Dock -->
+                <div class="absolute top-4 z-20 bg-surface-container-high/90 backdrop-blur-md border border-outline-variant/40 px-4 py-1.5 rounded-full flex items-center space-x-4 shadow-xl">
+                    <button onclick="prevPage()" class="text-on-surface-variant hover:text-on-surface transition text-xs cursor-pointer p-1" title="Previous Page (or Left Arrow)">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span id="page-indicator" class="text-xs font-mono text-on-surface tracking-wider select-none">Page 0 / 0</span>
+                    <button onclick="nextPage()" class="text-on-surface-variant hover:text-on-surface transition text-xs cursor-pointer p-1" title="Next Page (or Right Arrow)">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <div class="h-3.5 w-[1px] bg-outline-variant/40"></div>
+                    <button onclick="toggleFullScreen()" class="text-on-surface-variant hover:text-on-surface transition text-xs cursor-pointer p-1" title="Toggle Fullscreen">
+                        <i id="fs-icon" class="fa-solid fa-expand"></i>
+                    </button>
+                </div>
+
+                <!-- Flipbook Staging Area -->
+                <div id="book-container" class="flex items-center justify-center w-full h-full pt-12 pb-4 overflow-hidden">
+                    <div id="book" class="st-page-flip-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= JAVASCRIPT LOGIC ================= -->
+    <script>
+        const SUPABASE_URL = 'https://vichklqnaaxjaiqlkwpp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpY2hrbHFuYWF4amFpcWxrd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0Mzg5MTYsImV4cCI6MjEwNjAxNDkxNn0.wFvVHbA62jylhtG9K7YMOv9G9x9mefJkxaMpi5Uqph0';
+
+        let supabaseClient = null;
+        if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
+            try {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                    auth: {
+                        persistSession: true,
+                        autoRefreshToken: true,
+                        detectSessionInUrl: true,
+                        storage: window.localStorage
+                    }
+                });
+            } catch (err) {
+                console.warn('Supabase client init notice:', err);
+            }
+        }
+
+        let pageFlipInstance = null;
+        let currentUser = null;
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            const isError = type === 'error';
+            const isSuccess = type === 'success';
+
+            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-lg border shadow-2xl backdrop-blur-md transition duration-200 text-xs font-medium ${
+                isError ? 'bg-[#2d1519] border-red-500/40 text-red-200' :
+                isSuccess ? 'bg-[#102a1d] border-emerald-500/40 text-emerald-200' :
+                'bg-[#222a3d] border-[#464554]/50 text-[#dae2fd]'
+            }`;
+
+            const iconClass = isError ? 'fa-circle-exclamation text-red-400' :
+                             isSuccess ? 'fa-circle-check text-emerald-400' :
+                             'fa-circle-info text-[#c0c1ff]';
+
+            toast.innerHTML = `<i class="fa-solid ${iconClass}"></i><span class="flex-grow">${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 250);
+            }, 4000);
+        }
+
+        // =========================================================================
+        // REDIRECT DESTINATION CONFIGURATION (Website or File)
+        // -------------------------------------------------------------------------
+        // Configured destination website link:
+        // =========================================================================
+        const TARGET_REDIRECT_URL = 'https://krishu573.github.io/FlipStudio-Editor/';
+        const AUTH_REDIRECT_FILE = 'dashboard.html'; // Local fallback
+        const AUTH_DESTINATION_VIEW = 'editor';
+
+        function getDestinationUrl() {
+            // 1. Check if an external website URL was configured in code or saved in UI
+            let targetUrl = (typeof TARGET_REDIRECT_URL === 'string' && TARGET_REDIRECT_URL.trim() !== '')
+                ? TARGET_REDIRECT_URL.trim()
+                : (localStorage.getItem('flipstudio_target_website_url') || '');
+
+            if (targetUrl) {
+                if (!/^https?:\/\//i.test(targetUrl) && !targetUrl.startsWith('/')) {
+                    targetUrl = 'https://' + targetUrl;
+                }
+                return targetUrl;
+            }
+
+            // 2. Otherwise fall back to the local file
+            if (AUTH_REDIRECT_FILE && AUTH_REDIRECT_FILE.trim() !== '') {
+                try {
+                    return new URL(AUTH_REDIRECT_FILE, window.location.href).href;
+                } catch (e) {
+                    return AUTH_REDIRECT_FILE;
+                }
+            }
+            return '';
+        }
+
+        function saveCustomRedirectUrl(url) {
+            if (url && url.trim()) {
+                localStorage.setItem('flipstudio_target_website_url', url.trim());
+                const badge = document.getElementById('redirect-status-badge');
+                if (badge) {
+                    badge.classList.remove('hidden');
+                    setTimeout(() => badge.classList.add('hidden'), 2000);
+                }
+            } else {
+                localStorage.removeItem('flipstudio_target_website_url');
+            }
+        }
+
+        function navigateToDestination() {
+            const destUrl = getDestinationUrl();
+            if (destUrl) {
+                const isExternal = /^https?:\/\//i.test(destUrl) && !destUrl.startsWith(window.location.origin);
+                showToast(isExternal ? 'Login verified! Redirecting to external website...' : 'Login verified! Opening workspace...', 'success');
+                setTimeout(() => {
+                    window.location.href = destUrl;
+                }, 350);
+            } else {
+                // Navigate to the view within this file
+                showView(AUTH_DESTINATION_VIEW);
+            }
+        }
+
+        function isUserLoggedIn() {
+            if (currentUser && currentUser.email) return true;
+            try {
+                const saved = localStorage.getItem('flipcraft_google_user');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && parsed.email) return true;
+                }
+            } catch (e) {}
+            return false;
+        }
+
+        // When user clicks 'Get Started':
+        // If already signed in -> Go directly to destination file / page
+        // If not signed in -> Ask to sign in with Google
+        function handleGetStarted() {
+            if (isUserLoggedIn()) {
+                navigateToDestination();
+            } else {
+                showView('login');
+            }
+        }
+
+        function updateAuthUI(isLoggedIn, user = null) {
+            const navText = document.getElementById('nav-get-started-text');
+            const heroText = document.getElementById('hero-get-started-text');
+            if (isLoggedIn) {
+                if (navText) navText.innerText = 'Go to Dashboard';
+                if (heroText) heroText.innerText = 'Continue to Dashboard';
+            } else {
+                if (navText) navText.innerText = 'Get Started';
+                if (heroText) heroText.innerText = 'Get Started';
+            }
+        }
+
+        function showView(viewName) {
+            // Normalize viewName (supports both 'editor' and 'view-editor')
+            const normalized = viewName.startsWith('view-') ? viewName.replace('view-', '') : viewName;
+            
+            // If navigating to login but user is already signed in, redirect directly to the other file
+            if (normalized === 'login' && isUserLoggedIn()) {
+                navigateToDestination();
+                return;
+            }
+
+            const views = ['view-welcome', 'view-login', 'view-editor', 'view-' + normalized, normalized];
+            views.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+
+            // Target either 'view-<name>' or '<name>'
+            const target = document.getElementById('view-' + normalized) || document.getElementById(normalized);
+            if (target) {
+                target.classList.remove('hidden');
+            }
+        }
+
+        // Store user profile on Supabase database
+        async function syncUserToSupabase(user) {
+            if (!supabaseClient || !user) return;
+            const payload = {
+                id: user.id,
+                email: user.email || user.user_metadata?.email || '',
+                full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+                avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
+                provider: 'google',
+                last_sign_in_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            try {
+                await supabaseClient.from('profiles').upsert(payload, { onConflict: 'id' });
+            } catch (e) {
+                console.log('Profiles sync note:', e);
+            }
+            try {
+                await supabaseClient.from('users').upsert(payload, { onConflict: 'id' });
+            } catch (e) {
+                console.log('Users sync note:', e);
+            }
+        }
+
+        function onLoginSuccess(user, autoNavigate = true) {
+            currentUser = user;
+            const email = user.email || user.user_metadata?.email || 'Connected Google User';
+            const displayElem = document.getElementById('user-email-display');
+            const pillElem = document.getElementById('user-display-pill');
+            if (displayElem) displayElem.innerText = email;
+            if (pillElem) {
+                pillElem.classList.remove('hidden');
+                pillElem.classList.add('flex');
+            }
+
+            try {
+                localStorage.setItem('flipcraft_google_user', JSON.stringify({ email: email, id: user.id }));
+            } catch (e) {}
+
+            updateAuthUI(true, user);
+
+            if (autoNavigate) {
+                navigateToDestination();
+            }
+        }
+
+        async function handleGoogleLogin() {
+            const btnText = document.getElementById('google-btn-text');
+            const spinner = document.getElementById('google-btn-spinner');
+            const icon = document.getElementById('google-btn-icon');
+            if (btnText) btnText.innerText = 'Redirecting to Google...';
+            if (spinner) spinner.classList.remove('hidden');
+            if (icon) icon.classList.add('hidden');
+
+            if (!supabaseClient) {
+                onLoginSuccess({ email: 'user@gmail.com' });
+                showToast('Signed in with Google', 'success');
+                return;
+            }
+
+            try {
+                const dest = getDestinationUrl();
+                const isExternal = /^https?:\/\//i.test(dest) && !dest.startsWith(window.location.origin);
+                // For external websites, OAuth callback points to the app origin first so Supabase accepts the redirect,
+                // and then onLoginSuccess immediately forwards the authenticated user to the external website.
+                const redirectUrl = isExternal ? (window.location.origin + window.location.pathname) : (dest || (window.location.origin + window.location.pathname));
+                const { data, error } = await supabaseClient.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: redirectUrl,
+                        queryParams: {
+                            access_type: 'offline',
+                            prompt: 'select_account'
+                        },
+                        skipBrowserRedirect: true
+                    }
+                });
+
+                if (error) {
+                    showToast('Google Sign-In Error: ' + error.message, 'error');
+                    if (btnText) btnText.innerText = 'Continue with Google';
+                    if (spinner) spinner.classList.add('hidden');
+                    if (icon) icon.classList.remove('hidden');
+                    return;
+                }
+
+                if (data && data.url) {
+                    try {
+                        if (window.top && window.top !== window) {
+                            window.top.location.href = data.url;
+                        } else {
+                            window.location.href = data.url;
+                        }
+                    } catch (e) {
+                        window.location.href = data.url;
+                    }
+                } else {
+                    await supabaseClient.auth.signInWithOAuth({
+                        provider: 'google',
+                        options: { redirectTo: redirectUrl }
+                    });
+                }
+            } catch (err) {
+                showToast(err.message || 'Google sign-in error', 'error');
+                if (btnText) btnText.innerText = 'Continue with Google';
+                if (spinner) spinner.classList.add('hidden');
+                if (icon) icon.classList.remove('hidden');
+            }
+        }
+
+        async function handleLogout() {
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.auth.signOut();
+                } catch (e) {}
+            }
+            currentUser = null;
+            try {
+                localStorage.removeItem('flipcraft_google_user');
+            } catch (e) {}
+
+            updateAuthUI(false);
+
+            const emptyState = document.getElementById('empty-state');
+            const fsTarget = document.getElementById('fullscreen-target');
+            if (emptyState) emptyState.classList.remove('hidden');
+            if (fsTarget) fsTarget.classList.add('hidden');
+
+            if (pageFlipInstance) {
+                try {
+                    pageFlipInstance.destroy();
+                    pageFlipInstance = null;
+                } catch (e) {}
+            }
+
+            showView('welcome');
+            showToast('Signed out of workspace.', 'info');
+        }
+
+        // Initialize session on load
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Restore saved redirect URL in the input field if available
+            try {
+                const targetInput = document.getElementById('target-website-input');
+                const savedUrl = (typeof TARGET_REDIRECT_URL === 'string' && TARGET_REDIRECT_URL.trim() !== '')
+                    ? TARGET_REDIRECT_URL.trim()
+                    : (localStorage.getItem('flipstudio_target_website_url') || '');
+                if (targetInput && savedUrl) {
+                    targetInput.value = savedUrl;
+                }
+            } catch (e) {}
+
+            if (supabaseClient) {
+                supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                    if (session && session.user) {
+                        await syncUserToSupabase(session.user);
+                        onLoginSuccess(session.user);
+                        try {
+                            if (window.location.search.includes('code=') || window.location.hash.includes('access_token=')) {
+                                window.history.replaceState(null, '', window.location.pathname);
+                            }
+                        } catch (e) {}
+                    } else if (event === 'SIGNED_OUT') {
+                        showView('welcome');
+                    }
+                });
+
+                try {
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    if (session && session.user) {
+                        await syncUserToSupabase(session.user);
+                        onLoginSuccess(session.user);
+                        return;
+                    }
+                } catch (err) {
+                    console.warn('Session retrieval note:', err);
+                }
+            }
+
+            try {
+                const saved = localStorage.getItem('flipcraft_google_user');
+                if (saved) {
+                    const u = JSON.parse(saved);
+                    if (u && u.email) {
+                        onLoginSuccess(u);
+                        return;
+                    }
+                }
+            } catch (e) {}
+
+            showView('welcome');
+        });
+
+        // PDF Processing & Flipbook Initialization
+        const pdfInput = document.getElementById('pdf-file-input');
+        if (pdfInput) {
+            pdfInput.addEventListener('change', async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                    showToast('Please select a valid PDF file.', 'error');
+                    return;
+                }
+
+                const spinner = document.getElementById('loading-spinner');
+                const loadingText = document.getElementById('loading-text');
+                if (spinner) spinner.classList.remove('hidden');
+
+                // Cloud backup to Supabase storage if user is signed in
+                if (supabaseClient && currentUser && currentUser.id) {
+                    try {
+                        supabaseClient.storage
+                            .from('pdf-books')
+                            .upload(`${currentUser.id}/${Date.now()}_${file.name}`, file)
+                            .catch(err => console.log('Storage backup note:', err));
+                    } catch (e) {}
+                }
+
+                try {
+                    const fileReader = new FileReader();
+                    fileReader.onload = async function() {
+                        try {
+                            const typedarray = new Uint8Array(this.result);
+                            const pdfDoc = await pdfjsLib.getDocument({
+                                data: typedarray,
+                                cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+                                cMapPacked: true,
+                            }).promise;
+
+                            const images = [];
+                            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                                if (loadingText) loadingText.innerText = `Rendering page ${i} of ${pdfDoc.numPages}...`;
+                                const page = await pdfDoc.getPage(i);
+                                const viewport = page.getViewport({ scale: 1.6 });
+
+                                const canvas = document.createElement('canvas');
+                                const context = canvas.getContext('2d');
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+
+                                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                                images.push(canvas.toDataURL('image/jpeg', 0.92));
+                            }
+
+                            if (spinner) spinner.classList.add('hidden');
+                            const emptyState = document.getElementById('empty-state');
+                            const fsTarget = document.getElementById('fullscreen-target');
+                            if (emptyState) emptyState.classList.add('hidden');
+                            if (fsTarget) fsTarget.classList.remove('hidden');
+
+                            initFlipbook(images);
+                            showToast('Flipbook converted! Drag corners or use arrow buttons to flip.', 'success');
+                        } catch (err) {
+                            console.error('PDF render error:', err);
+                            if (spinner) spinner.classList.add('hidden');
+                            showToast('Failed to process PDF pages: ' + err.message, 'error');
+                        }
+                    };
+                    fileReader.readAsArrayBuffer(file);
+                } catch (error) {
+                    console.error('File read error:', error);
+                    if (spinner) spinner.classList.add('hidden');
+                    showToast('Failed to read the selected PDF file.', 'error');
+                }
+            });
+        }
+
+        function initFlipbook(images) {
+            const bookElement = document.getElementById('book');
+            if (!bookElement) return;
+            bookElement.innerHTML = '';
+
+            if (pageFlipInstance) {
+                try {
+                    pageFlipInstance.destroy();
+                } catch (e) {}
+                pageFlipInstance = null;
+            }
+
+            const container = document.getElementById('book-container');
+            const containerWidth = container ? container.clientWidth : 800;
+            const targetWidth = Math.min(Math.max(Math.floor(containerWidth * 0.42), 290), 550);
+            const targetHeight = Math.floor(targetWidth * 1.414);
+
+            pageFlipInstance = new St.PageFlip(bookElement, {
+                width: targetWidth,
+                height: targetHeight,
+                size: 'stretch',
+                minWidth: 260,
+                maxWidth: 750,
+                minHeight: 360,
+                maxHeight: 1000,
+                showCover: true,
+                maxShadowOpacity: 0.5,
+                mobileScrollSupport: true,
+                usePortrait: true,
+                drawShadow: true
+            });
+
+            pageFlipInstance.loadFromImages(images);
+
+            pageFlipInstance.on('flip', (e) => {
+                const curr = (typeof e.data === 'number' ? e.data : pageFlipInstance.getCurrentPageIndex()) + 1;
+                updatePageIndicator(curr, pageFlipInstance.getPageCount());
+            });
+
+            pageFlipInstance.on('init', () => {
+                updatePageIndicator(pageFlipInstance.getCurrentPageIndex() + 1, pageFlipInstance.getPageCount());
+            });
+
+            setTimeout(() => {
+                if (pageFlipInstance) {
+                    updatePageIndicator(pageFlipInstance.getCurrentPageIndex() + 1, pageFlipInstance.getPageCount() || images.length);
+                }
+            }, 300);
+        }
+
+        function updatePageIndicator(current, total) {
+            const ind = document.getElementById('page-indicator');
+            if (ind) ind.innerText = `Page ${current} / ${total || 1}`;
+        }
+
+        function nextPage() {
+            if (pageFlipInstance) pageFlipInstance.flipNext();
+        }
+
+        function prevPage() {
+            if (pageFlipInstance) pageFlipInstance.flipPrev();
+        }
+
+        function toggleFullScreen() {
+            const target = document.getElementById('fullscreen-target');
+            if (!target) return;
+
+            if (!document.fullscreenElement) {
+                target.requestFullscreen().catch(err => {
+                    showToast(`Fullscreen error: ${err.message}`, 'error');
+                });
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            const fsIcon = document.getElementById('fs-icon');
+            if (!fsIcon) return;
+            if (document.fullscreenElement) {
+                fsIcon.classList.remove('fa-expand');
+                fsIcon.classList.add('fa-compress');
+            } else {
+                fsIcon.classList.remove('fa-compress');
+                fsIcon.classList.add('fa-expand');
+            }
+        });
+
+        // Keyboard navigation
+        window.addEventListener('keydown', (e) => {
+            if (pageFlipInstance) {
+                if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+                    nextPage();
+                } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                    prevPage();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

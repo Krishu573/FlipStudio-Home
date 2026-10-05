@@ -348,10 +348,6 @@ export default function App() {
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'select_account',
-          },
           skipBrowserRedirect: true,
         },
       });

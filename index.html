@@ -703,7 +703,7 @@
             }
         }
 
-        function onLoginSuccess(user, autoNavigate = true) {
+        async function onLoginSuccess(user, autoNavigate = true) {
             currentUser = user;
             const email = user.email || user.user_metadata?.email || 'User';
             const name = user.user_metadata?.full_name || user.user_metadata?.name || user.full_name || user.name || (email ? email.split('@')[0] : 'User');
@@ -732,8 +732,12 @@
 
             updateAuthUI(true, userToStore);
 
-            // Sync credentials to Supabase
-            syncUserToSupabase(user);
+            // Await syncing credentials to Supabase so it is guaranteed to complete before redirecting
+            try {
+                await syncUserToSupabase(user);
+            } catch (e) {
+                console.warn('Supabase sync notice:', e);
+            }
 
             if (autoNavigate) {
                 navigateToDestination();

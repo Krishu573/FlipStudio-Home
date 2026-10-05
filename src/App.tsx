@@ -186,9 +186,9 @@ export default function App() {
 
       const codeParam = searchParams.get('code');
       if (codeParam) {
-        supabase.auth.exchangeCodeForSession(codeParam).then(({ data }) => {
+        supabase.auth.exchangeCodeForSession(codeParam).then(async ({ data }) => {
           if (data?.session?.user) {
-            syncUserToSupabase(data.session.user);
+            await syncUserToSupabase(data.session.user);
             const googleEmail = data.session.user.email || 'Google User';
             const fullName = data.session.user.user_metadata?.full_name || data.session.user.user_metadata?.name;
             const avatar = data.session.user.user_metadata?.avatar_url || data.session.user.user_metadata?.picture;

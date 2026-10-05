@@ -861,6 +861,17 @@
                 updateAuthUI(true, storedUser);
             }
 
+            // Detect any OAuth error returned in URL hash or query parameters
+            try {
+                const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+                const searchParams = new URLSearchParams(window.location.search);
+                const authError = hashParams.get('error_description') || searchParams.get('error_description') || hashParams.get('error') || searchParams.get('error');
+                if (authError) {
+                    showToast('Supabase Auth: ' + decodeURIComponent(authError.replace(/\+/g, ' ')), 'error');
+                    window.history.replaceState(null, '', window.location.pathname);
+                }
+            } catch (e) {}
+
             const isOAuthRedirect = window.location.search.includes('code=') || window.location.hash.includes('access_token=');
             const codeParam = new URLSearchParams(window.location.search).get('code');
 
@@ -869,7 +880,10 @@
                 if (codeParam) {
                     try {
                         const { data, error } = await supabaseClient.auth.exchangeCodeForSession(codeParam);
-                        if (data && data.session && data.session.user) {
+                        if (error) {
+                            showToast('Supabase Login Error: ' + error.message, 'error');
+                            console.error('exchangeCodeForSession error:', error);
+                        } else if (data && data.session && data.session.user) {
                             await syncUserToSupabase(data.session.user);
                             onLoginSuccess(data.session.user, true);
                             try {

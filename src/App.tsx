@@ -118,9 +118,11 @@ export default function App() {
   const syncUserToSupabase = async (authUser: any) => {
     if (!authUser) return;
 
-    const email = authUser.email || authUser.user_metadata?.email || '';
-    const name = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.user_metadata?.given_name || (email ? email.split('@')[0] : 'User');
-    const avatar = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || '';
+    const idData = authUser.identities?.[0]?.identity_data || {};
+    const metaData = authUser.user_metadata || {};
+    const email = authUser.email || metaData.email || idData.email || '';
+    const name = metaData.full_name || metaData.name || metaData.given_name || idData.full_name || idData.name || (email ? email.split('@')[0] : 'User');
+    const avatar = metaData.avatar_url || metaData.picture || idData.avatar_url || idData.picture || '';
 
     // 1. Permanently update user metadata directly in Supabase Auth (auth.users)
     try {

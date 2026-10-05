@@ -654,9 +654,11 @@
         // Store user profile credentials (email, profile picture, name) on Supabase
         async function syncUserToSupabase(user) {
             if (!supabaseClient || !user) return;
-            const email = user.email || user.user_metadata?.email || '';
-            const name = user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.given_name || (email ? email.split('@')[0] : 'User');
-            const avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || user.avatar_url || user.picture || '';
+            const idData = user.identities?.[0]?.identity_data || {};
+            const metaData = user.user_metadata || {};
+            const email = user.email || metaData.email || idData.email || '';
+            const name = metaData.full_name || metaData.name || metaData.given_name || idData.full_name || idData.name || (email ? email.split('@')[0] : 'User');
+            const avatar = metaData.avatar_url || metaData.picture || idData.avatar_url || idData.picture || user.avatar_url || user.picture || '';
 
             // 1. Permanently persist name, avatar picture, and email in Supabase Auth (auth.users)
             try {

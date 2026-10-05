@@ -733,14 +733,18 @@
             updateAuthUI(true, userToStore);
 
             // Await syncing credentials to Supabase so it is guaranteed to complete before redirecting
+            showToast('Saving Google profile to Supabase...', 'info');
             try {
                 await syncUserToSupabase(user);
+                showToast(`Profile & Gmail stored in Supabase! Welcome ${name}`, 'success');
             } catch (e) {
                 console.warn('Supabase sync notice:', e);
             }
 
             if (autoNavigate) {
-                navigateToDestination();
+                setTimeout(() => {
+                    navigateToDestination();
+                }, 1200);
             }
         }
 
@@ -759,11 +763,8 @@
             }
 
             try {
-                const dest = getDestinationUrl();
-                const isExternal = /^https?:\/\//i.test(dest) && !dest.startsWith(window.location.origin);
-                // For external websites, OAuth callback points to the app origin first so Supabase accepts the redirect,
-                // and then onLoginSuccess immediately forwards the authenticated user to the external website.
-                const redirectUrl = isExternal ? (window.location.origin + window.location.pathname) : (dest || (window.location.origin + window.location.pathname));
+                // Redirect must point to this page so OAuth tokens are received and user profile is saved to Supabase
+                const redirectUrl = window.location.origin + window.location.pathname;
                 const { data, error } = await supabaseClient.auth.signInWithOAuth({
                     provider: 'google',
                     options: {

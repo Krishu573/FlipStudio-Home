@@ -188,18 +188,26 @@ export default function App() {
       if (codeParam) {
         supabase.auth.exchangeCodeForSession(codeParam).then(async ({ data }) => {
           if (data?.session?.user) {
-            await syncUserToSupabase(data.session.user);
             const googleEmail = data.session.user.email || 'Google User';
-            const fullName = data.session.user.user_metadata?.full_name || data.session.user.user_metadata?.name;
+            const fullName = data.session.user.user_metadata?.full_name || data.session.user.user_metadata?.name || (googleEmail ? googleEmail.split('@')[0] : 'User');
             const avatar = data.session.user.user_metadata?.avatar_url || data.session.user.user_metadata?.picture;
             const userData = { email: googleEmail, name: fullName, avatar, id: data.session.user.id };
             setUser(userData);
             localStorage.setItem('flipstudio_auth_user', JSON.stringify(userData));
             localStorage.setItem('flipcraft_google_user', JSON.stringify(userData));
             window.history.replaceState(null, '', window.location.pathname);
-            navigateToDestination();
+
+            showToast('Saving Google profile to Supabase...', 'info');
+            await syncUserToSupabase(data.session.user);
+            showToast(`Profile & Gmail stored in Supabase! Welcome ${fullName}`, 'success');
+
+            setTimeout(() => {
+              navigateToDestination();
+            }, 1200);
           }
-        }).catch(() => {});
+        }).catch((err) => {
+          console.warn('OAuth exchange error:', err);
+        });
       }
     } catch {
       // ignore
@@ -209,7 +217,7 @@ export default function App() {
     const { data: authSubscription } = supabase.auth.onAuthStateChange(async (event: string, session: any) => {
       if (session?.user) {
         const googleEmail = session.user.email || session.user.user_metadata?.email || 'Google User';
-        const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name;
+        const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || (googleEmail ? googleEmail.split('@')[0] : 'User');
         const avatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
         const userData = {
           email: googleEmail,
@@ -218,9 +226,6 @@ export default function App() {
           id: session.user.id,
         };
         setUser(userData);
-
-        // Automatically store user data in Supabase database
-        await syncUserToSupabase(session.user);
 
         try {
           localStorage.setItem('flipstudio_auth_user', JSON.stringify(userData));
@@ -231,8 +236,15 @@ export default function App() {
         } catch {
           // ignore
         }
-        navigateToDestination();
-        showToast(`Signed in with Google as ${googleEmail}`, 'success');
+
+        // Automatically store user data in Supabase database & Auth
+        showToast('Saving Google profile to Supabase...', 'info');
+        await syncUserToSupabase(session.user);
+        showToast(`Profile & Gmail stored in Supabase! Welcome ${fullName}`, 'success');
+
+        setTimeout(() => {
+          navigateToDestination();
+        }, 1200);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         localStorage.removeItem('flipstudio_auth_user');
@@ -326,7 +338,8 @@ export default function App() {
     setAuthLoading(true);
 
     try {
-      const redirectUrl = getDestinationUrl() || (window.location.origin + window.location.pathname);
+      // Must redirect back to THIS app so the OAuth token is processed and profile is saved to Supabase
+      const redirectUrl = window.location.origin + window.location.pathname;
 
       // Request Google OAuth URL with skipBrowserRedirect so we can redirect cleanly to Google login
       const { data, error } = await supabase.auth.signInWithOAuth({
